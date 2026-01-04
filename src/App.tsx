@@ -49,6 +49,20 @@ function AppContent() {
   // Load initial data
   useEffect(() => {
     refreshItemsFromDatabase();
+
+    // Check for saved user session
+    const savedUser = localStorage.getItem('uniMarketUser');
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        setIsLoggedIn(true);
+        // Refresh items and user-specific data (will rely on user state change effect)
+      } catch (error) {
+        console.error('Failed to parse saved user:', error);
+        localStorage.removeItem('uniMarketUser');
+      }
+    }
   }, []);
 
   const navigateToPage = (newPage: string, context?: { item?: Item | null; userId?: string | null; itemStack?: Item[] }, push = true) => {
@@ -226,6 +240,15 @@ function AppContent() {
         setExchangeRequests(requests);
 
         setCurrentPage('profile');
+
+        // Save to localStorage
+        localStorage.setItem('uniMarketUser', JSON.stringify({
+          id: String(backendUser.id),
+          name: backendUser.name,
+          email: backendUser.email,
+          avatar: backendUser.picture,
+        }));
+
         toast.success(`Successfully logged in as ${backendUser.name}`);
       }
     } catch (error) {
@@ -247,13 +270,15 @@ function AppContent() {
     setUser(null);
     setUserItems([]);
     setExchangeRequests([]);
+    setUser(null);
+    setUserItems([]);
+    setExchangeRequests([]);
     setCurrentPage('home');
+    localStorage.removeItem('uniMarketUser');
     toast.success('Successfully logged out!');
   };
 
-  const handleEditProfile = (profileData: any) => {
-    toast.info('Profile update not implemented yet');
-  };
+
 
   const handleTestLogin = async () => {
     const testUser = {
@@ -277,7 +302,17 @@ function AppContent() {
       ]);
       setUserItems(myItems);
       setExchangeRequests(requests);
+      setExchangeRequests(requests);
       setCurrentPage('profile');
+
+      // Save to localStorage
+      localStorage.setItem('uniMarketUser', JSON.stringify({
+        id: backendUser.id,
+        name: backendUser.name,
+        email: backendUser.email,
+        avatar: backendUser.picture,
+      }));
+
       toast.success('Test login successful!');
     } catch (error) {
       console.error(error);
@@ -314,6 +349,17 @@ function AppContent() {
 
       // Navigate to admin page (this will call loadAllUsers)
       handleNavigate('admin');
+
+      // Navigate to admin page (this will call loadAllUsers)
+      handleNavigate('admin');
+
+      // Save to localStorage
+      localStorage.setItem('uniMarketUser', JSON.stringify({
+        id: String(backendUser.id),
+        name: backendUser.name,
+        email: backendUser.email,
+        avatar: backendUser.picture,
+      }));
 
       toast.success('Logged in as admin!');
     } catch (error) {
@@ -436,27 +482,29 @@ function AppContent() {
       }
 
       toast.success('Item deleted successfully!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete item:', error);
-      toast.error('Failed to delete item');
+      toast.error(error.message || 'Failed to delete item');
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
     if (!user) return;
+    console.log('App: handleDeleteUser called for ID:', userId);
 
-    // Confirm deletion
-    if (!window.confirm('Are you sure you want to delete this user? This will also delete all their items and cancel all related exchanges. This action cannot be undone.')) {
-      return;
-    }
+    // Confirmation handled by UI component
 
     try {
+      console.log('App: Calling api.deleteUser...');
       await api.deleteUser(userId);
+      console.log('App: User deleted from API. Refreshing data...');
+      await loadAllUsers(); // Refresh the list of users for the admin panel
       await refreshAllUserData();
+      console.log('App: Data refreshed.');
       toast.success('User and all associated items deleted successfully!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete user:', error);
-      toast.error('Failed to delete user');
+      toast.error(error.message || 'Failed to delete user');
     }
   };
 
@@ -549,6 +597,27 @@ function AppContent() {
     }
   };
 
+  const handleEditProfile = async (profileData: any) => {
+    if (!user) return;
+    try {
+      const updatedUser = await api.updateProfile(user.id, profileData);
+      setUser(prev => prev ? ({ ...prev, ...profileData, name: updatedUser.name }) : null);
+
+      // Also update localStorage
+      const storedUser = localStorage.getItem('uniMarketUser');
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        localStorage.setItem('uniMarketUser', JSON.stringify({ ...parsed, name: updatedUser.name }));
+      }
+
+      await refreshAllUserData();
+      toast.success('Profile updated successfully!');
+    } catch (error: any) {
+      console.error('Failed to update profile:', error);
+      toast.error(error.message || 'Failed to update profile');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Toaster />
@@ -622,8 +691,6 @@ function AppContent() {
             onEditItem={handleEditItem}
             onItemClick={handleItemClick}
             onSellNewItem={() => navigateToPage('sell')}
-            onAcceptExchange={handleAcceptExchange}
-            onRejectExchange={handleRejectExchange}
             onViewItem={(itemId) => {
               const item = items.find(i => i.id === itemId);
               if (item) handleItemClick(item);

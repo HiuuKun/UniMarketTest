@@ -14,7 +14,7 @@ export interface Notification {
   body?: string;
   createdAt?: string; // ISO string
   read?: boolean;
-  status?: "pending" | "accepted" | "rejected" | "info";
+  status?: "pending" | "accepted" | "rejected" | "info" | "completed" | "cancelled";
   from?: {
     name?: string;
     avatar?: string;
@@ -26,18 +26,12 @@ export interface Notification {
 interface NotificationItemProps {
   notification: Notification;
   onMarkRead?: (id: string) => void;
-  onAccept?: (id: string) => void;
-  onReject?: (id: string) => void;
-  onComplete?: (id: string) => void;
   onOpenItem?: (itemId: string | undefined) => void;
 }
 
 export function NotificationItem({
   notification,
   onMarkRead,
-  onAccept,
-  onReject,
-  onComplete,
   onOpenItem,
 }: NotificationItemProps) {
   const timeLabel = notification.createdAt
@@ -47,7 +41,9 @@ export function NotificationItem({
   const statusBadge = (() => {
     if (notification.status === "pending") return <Badge variant="secondary">Pending</Badge>;
     if (notification.status === "accepted") return <Badge variant="default">Accepted</Badge>;
-    if (notification.status === "rejected") return <Badge variant="outline">Rejected</Badge>;
+    if (notification.status === "rejected") return <Badge variant="destructive">Rejected</Badge>;
+    if (notification.status === "completed") return <Badge variant="default" className="bg-green-600">Completed</Badge>;
+    if (notification.status === "cancelled") return <Badge variant="outline" className="border-red-500 text-red-500">Cancelled</Badge>;
     return <Badge variant="ghost">Info</Badge>;
   })();
 
@@ -96,44 +92,7 @@ export function NotificationItem({
               </Button>
             )}
 
-            {/* Accept/Reject for exchange notifications */}
-            {notification.type === "exchange" && notification.status === "pending" && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onAccept?.(notification.id)}
-                  className="gap-2"
-                  aria-label="Accept request"
-                >
-                  <Check className="h-4 w-4" />
-                  Accept
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onReject?.(notification.id)}
-                  className="gap-2"
-                  aria-label="Reject request"
-                >
-                  <X className="h-4 w-4" />
-                  Reject
-                </Button>
-              </>
-            )}
-
-            {/* Offer Complete for accepted exchange notifications */}
-            {notification.type === "exchange" && notification.status === "accepted" && (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => onComplete?.(notification.id)}
-                className="gap-2"
-              >
-                <Check className="h-4 w-4" />
-                Mark Complete
-              </Button>
-            )}
+            {/* Action buttons removed as notifications should only display information */}
 
             {/* Mark read / unread */}
             <Button
